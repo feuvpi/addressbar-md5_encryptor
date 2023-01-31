@@ -1,30 +1,55 @@
 package main
 
 import (
-    "fmt"
-    "net/http"
-    "os"
-	//"crypto/md5"
+	"crypto/md5"
+	"fmt"
+	"net/http"
+	"os"
+
+	"github.com/gorilla/mux"
 )
 
-func encryptoHandler(w, http.ResponseWriter, r *http.Request){
-	path := r.URL.Path
-	parts := strings.Split(path, "/")
+func encryptoHandler(w http.ResponseWriter, r *http.Request) {
 
-	secret := parts[3]
-	word := parts[4]
+	// extract variables from URL path
+	vars := mux.Vars(r)
+	secret := vars["secret"]
+	word := vars["word"]
+
+	// encrypt
+	sum := md5.Sum([]byte(secret + word))
+	encrypted := fmt.Sprintf("%x", sum)
+
+	// write in response
+	//w.Write([]byte(encrypted))
+
+	// redirect to encrypted
+	redirect := "/encrypted/" + encrypted
+	http.Redirect(w, r, redirect, http.StatusMovedPermanently)
+	// if err != nil {
+	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+	// }
+
 }
 
 func main() {
-    var port = "8080"
-    if len(os.Args) > 1 {
-        port = os.Args[1]
-    }
+	var port = "8080"
+	if len(os.Args) > 1 {
+		port = os.Args[1]
+	}
 
-    mux := http.NewServeMux()
-    mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-        fmt.Fprint(w, "Hello, World!")
-    })
-    fmt.Printf("Server is active and listening on port %s\n", port)
-    http.ListenAndServe(":"+port, mux)
+	router := mux.NewRouter()
+
+	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "Hello, application is running.")
+	})
+
+	router.HandleFunc("/encrypt/{secret}/{word}", encryptoHandler)
+
+	router.HandleFunc("/encrypted/{encrypted}", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "Encryption done! Check address bar.")
+	})
+
+	http.ListenAndServe(":"+port, router)
+	fmt.Printf("Server is active and listening on port %s\n", port)
 }
